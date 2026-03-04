@@ -1,0 +1,446 @@
+Implementation.md
+BackgroundModifier – Implementation Guide  
+Version: 5.000
+Profile: default
+Author: Rolf Bercht
+
+This document describes the implementation details of the BackgroundModifier solution.
+It complements the `Requirements.md`, which defines the architectural behavior and invariants.
+
+Implementation.md defines coding conventions, module structure, logging behavior, JSON handling, rendering rules, wallpaper application, scheduled task configuration, symlink rules, and error‑handling patterns.
+
+1. Module Header Format
+Every .ps1 and .psm1 file must begin with the following header:
+
+Code
+<# ------------------------------------------------------------------------------------------------------------------------------
+    Path: <Directory path relative to repository root>
+    Module: <File name without path>
+
+    Version: <Semantic version>
+    Author: Rolf Bercht
+    Synopsis: <Short description>
+    Architecture: Requirements v5.000
+
+    Notes:
+        - <Architectural notes>
+
+    Changelog:
+        - <Version> <Date> <Summary>
+   ------------------------------------------------------------------------------------------------------------------------------
+#>
+Rules:
+
+Header is mandatory for all modules and scripts.
+
+Version must follow semantic versioning.
+
+Architecture reference must match the Requirements document version.
+
+Changelog entries must be chronological.
+
+2. Coding Conventions
+2.1 Naming Rules
+Functions use PascalCase: Get-EspIdentity, Write-StateJson.
+
+Private helper functions begin with _.
+
+Modules end with Tools.psm1.
+
+Scripts use descriptive names: BootIdentity.ps1, BackgroundRenderer.ps1.
+
+2.2 Parameter Rules
+All public functions must support -Debug and -Trace.
+
+All functions must validate parameters using ValidateNotNullOrEmpty where appropriate.
+
+No function may rely on global variables.
+
+2.3 Error Handling
+All errors must be thrown using throw or Write-Error -ErrorAction Stop.
+
+No silent failures.
+
+All errors must be logged via LoggingTools.
+
+3. Logging, Debugging, and Tracing
+3.1 Logging
+All modules must log to C:\BackgroundMotives\logs.
+
+Log file naming convention:
+
+BootIdentity_<timestamp>.log
+
+Renderer_<timestamp>.log
+
+Setter_<timestamp>.log
+
+Verifier_<timestamp>.log
+
+3.2 Debug Mode (-d)
+Enables verbose output to console and log.
+
+Does not change behavior.
+
+3.3 Trace Mode (-t)
+Implies debug mode.
+
+Adds step‑by‑step trace entries to logs.
+
+Used for deep debugging.
+
+4. JSON Handling (State.json)
+4.1 Schema
+State.json must contain the following domains:
+
+OS
+
+System
+
+ESP
+
+UserInfo
+
+Meta
+
+4.### Module Header Requirements
+
+Every `.ps1` and `.psm1` file must begin with a fixed‑layout header block.
+
+- `Module:` — the exact file name including extension.
+- `Path:` — the relative directory path **without** the file name and **without** a trailing backslash.
+- `Author:` — always `Rolf Bercht` unless explicitly changed.
+- `Version:` — current module version, using three‑digit major version and three‑digit minor version (e.g., `5.000`).
+- `Changelog:` — up to four predecessor versions, newest first, each with a short description.
+- Header must be wrapped in a 100% fixed, aligned, monospaced block using `#` and `=` exactly as shown.
+
+Example (authoritative):
+
+    # =================================================================================================
+    #  Module:      BootIdentity.ps1
+    #  Path:        .\Source
+    #  Author:      Rolf Bercht
+    #  Version:     5.000
+    #  Changelog:
+    #      5.000  –  Introduced BCD‑based bootloader‑path resolution; restored Diskpart A1/Variant 1;
+    #                 added full ESP correlation rules; added BootLoaderPath to State.json.
+    #      4.004  –  Refined ESP label handling; removed temp‑file Diskpart capture; pipeline only.
+    #      4.003  –  Corrected partition/volume correlation; enforced GUID‑based ESP detection.
+    #      4.002  –  Added deterministic logging and strict error handling.
+    #      4.001  –  Initial 4.x series structure and module boundary cleanup.
+    # =================================================================================================
+
+
+4.2 SchemaVersion
+Meta.SchemaVersion must equal the version of the Requirements document (5.000).
+
+4.3 Write Rules
+BootIdentity writes OS/System/ESP/Meta.
+
+Logon stage writes UserInfo and updates Meta.LastRunInfo.
+
+Renderer updates Meta.LastRunInfo after rendering.
+
+JSON must be written using ConfigTools with deterministic formatting.
+
+4.4 Read Rules
+All JSON reads must use ConfigTools.
+
+Missing fields must be treated as errors unless explicitly allowed.
+
+4.5 ### ESP Detection (Diskpart-Based)
+
+BootIdentity uses Diskpart to enumerate and identify all EFI System Partitions.
+
+1. Enumerate partitions per disk:
+
+   diskpart /s "<script>" | Out-String
+
+   Script:
+       list disk
+       select disk <n>
+       list partition
+
+   - Parse DiskNumber, PartitionNumber, PartitionTypeGuid.
+   - Identify EFI partitions by the standard EFI System Partition GUID.
+
+2. Enumerate all volumes:
+
+   diskpart /s "<script>" | Out-String
+
+   Script:
+       list volume
+
+   - Parse VolumeNumber, VolumeLabel, DriveLetter, DiskNumber, PartitionNumber.
+   - EFI partitions usually have no drive letter; parsing must tolerate blank fields.
+
+3. Correlate partitions from step 1 with volumes from step 2 using DiskNumber + PartitionNumber.
+
+4. Store all EFI partitions in State.json with:
+   - DiskNumber
+   - PartitionNumber
+   - PartitionTypeGuid
+   - VolumeLabel
+   - DriveLetter
+
+5. Determine the active ESP by VolumeLabel = "System".
+   - All other EFI partitions are “Hidden”.
+
+6. Capture Diskpart output via pipeline, not temporary files.
+
+4.6 ### Bootloader Path Resolution (BCD-Based)
+
+BootIdentity determines the EFI bootloader used for the current boot from the active BCD entry.
+
+1. Query the active boot entry:
+
+   bcdedit /enum {current}
+
+2. Extract:
+   - device (must match the active ESP)
+   - path (relative EFI file path, e.g. \EFI\Microsoft\Boot\bootmgfw.efi)
+
+3. Combine:
+   - the active ESP’s resolved filesystem root
+   - the BCD path
+
+   into a full path to the bootloader file.
+
+4. Write this to State.json under:
+   ESP.Active.BootLoaderPath
+
+5. If the BCD entry cannot be resolved:
+   - log the error
+   - continue writing all other fields
+
+
+5. Module Dependency Rules
+5.1 Allowed Dependencies
+Orchestrator scripts may call multiple modules.
+
+Modules may call:
+
+LoggingTools
+
+ConfigTools
+
+TimeTools
+
+5.2 Forbidden Dependencies
+No circular dependencies.
+
+No module may modify State.json except through ConfigTools.
+
+No module may directly manipulate scheduled tasks (only SchedulerTools/TaskTools).
+
+5.3 Architectural Dependency Matrix (verified: 2026-03-04)
+
+This section maps architectural dependencies from Requirements.md against actual module files
+in the codebase. Three categories are identified: Documented, Undocumented, and Missing.
+
+### 5.3.1 Documented Modules (defined in Requirements.md)
+
+These 15 modules are explicitly referenced in Requirements.md via "Uses" or "Calls" statements
+and represent the intended architectural design:
+
+| Module | Purpose | Used By | Status |
+|--------|---------|---------|--------|
+| BootTools.psm1 | ESP and boot identity detection (Diskpart, BCD) | BootIdentity.ps1 | ✓ Implemented |
+| SystemTools.psm1 | OS and system information collection | BootIdentity.ps1 | ✓ Implemented |
+| TimeTools.psm1 | UTC timestamp generation | BootIdentity.ps1, BackgroundRenderer.ps1 | ✓ Implemented |
+| ConfigTools.psm1 | Deterministic JSON I/O for State.json | All phases | ✓ Implemented |
+| LoggingTools.psm1 | Centralized append-only logging | BackgroundRenderer.ps1, others | ✓ Implemented |
+| ValidationTools.psm1 | Parameter, path, and config validation | BackgroundRenderer.ps1 | ✓ Implemented |
+| ErrorTools.psm1 | Deterministic error handling and reporting | BackgroundRenderer.ps1 | ✓ Implemented |
+| RenderTools.psm1 | Image composition and text field rendering | BackgroundRenderer.ps1 | ✓ Implemented |
+| ImageTools.psm1 | Image manipulation and file I/O | BackgroundRenderer.ps1 | ✓ Implemented |
+| WallpaperTools.psm1 | P/Invoke wallpaper application (SystemParametersInfo) | BackgroundSetter.ps1 | ✓ Implemented |
+| SchedulerTools.psm1 | Scheduled task creation and registration | Setup.ps1 | ✓ Implemented |
+| TaskTools.psm1 | COM wrappers for scheduled task manipulation | Setup.ps1, Cleanup.ps1 | ✓ Implemented |
+| CleanupTools.psm1 | Log rotation and temp file cleanup | Cleanup.ps1 | ✓ Implemented |
+| BackgroundStateMgr.psm1 | Apply rendered images to desktop/logon screens | BackgroundSetter.ps1 | ✓ Implemented |
+| BackgroundNoBlurReg.psm1 | Registry rules to disable blur on logon screen | BackgroundSetter.ps1 | ✓ Implemented |
+
+Note: Both `BackgroundStateMgr.psm1` and `BackgroundNoBlurReg.psm1` have been added to `Source/Modules` and are present in the codebase. Please verify their behavior through the install/test workflows and update implementation details in this document if required.
+
+### 5.3.2 Undocumented Modules (present in codebase but not in Requirements.md)
+
+These 10 modules exist in Source/Modules but are not mentioned in Requirements.md. They may be
+infrastructure/support modules, renamed modules, or consolidations. Review and categorize:
+
+| Module | Inferred Purpose | Category | Action |
+|--------|------------------|----------|--------|
+| Constants.psm1 | Global path constants and well-known directories | Infrastructure | Review: add "Uses" to Requirements or document internal status |
+| InstallerTools.psm1 | Setup.ps1 helper functions | Tool Module | Document purpose or consolidate into Setup.ps1 |
+| Logging.psm1 | Legacy predecessor of LoggingTools.psm1 | Legacy | Archive: use LoggingTools.psm1 exclusively |
+| ModeTools.psm1 | Debug (-d) and Trace (-t) mode flag handling | Bootstrap Support | Consider: add to Requirements as internal infrastructure |
+| PathTools.psm1 | Path validation and directory creation utilities | Infrastructure | Review: should be documented or consolidated |
+| ProfileTools.psm1 | User profile identification and manipulation | Infrastructure | Review: add "Uses" to Requirements if active |
+| SetFlagsTool.psm1 | Command-line flag parsing (-t, -d, etc.) | Bootstrap Support | Consider: document scope and lifecycle |
+| SummaryTools.psm1 | Summary reporting and output formatting | Infrastructure | Review: usage context and scope |
+| TranscriptTools.psm1 | PowerShell transcript start/stop/rotation | Infrastructure | Review: add to Requirements if active |
+| Validation.psm1 | Legacy predecessor of ValidationTools.psm1 | Legacy | Archive: use ValidationTools.psm1 exclusively |
+
+**Recommended Next Steps:**
+1. Verify whether Logging.psm1 and Validation.psm1 are duplicates or renamed variants of LoggingTools and ValidationTools.
+2. Determine scope of infrastructure modules (Constants, ModeTools, SetFlagsTool, etc.):
+   - If essential to bootstrap/runtime, update Requirements.md section 5 with "Uses" statements
+   - If historical, move to archive/ folder with a deprecation note
+3. Verify end-to-end runtime integration of BackgroundStateMgr and BackgroundNoBlurReg during install/logon workflows.
+
+### 5.3.3 Summary
+
+- **Documented (Requirements.md):** 15 modules specified; 15 implemented, 0 missing
+- **Actual Codebase:** 23 modules total (13 documented + 10 undocumented)
+- **Reconciliation Required:** Clarify status of 10 undocumented and 2 missing modules
+
+6. Rendering Implementation
+6.1 Rendering Rules
+Renderer must load State.json.
+
+Renderer must draw text fields in a deterministic layout.
+
+Renderer must output:
+
+DesktopScreen.jpg
+
+LogonScreen.jpg
+
+6.2 Fonts and Layout
+Font family: Segoe UI (or fallback)
+
+DPI: 96
+
+Text color: white
+
+Shadow: optional
+
+Open Question: Should font size scale with resolution?
+
+6.3 Required Fields
+Renderer must include:
+
+OS UpdateVersion
+
+Host Name
+
+User Name
+
+Boot Time
+
+Logon Time
+
+Indexing (optional)
+
+IP Address
+
+7. Wallpaper Application
+7.1 Desktop Wallpaper
+Applied via SystemParametersInfo (P/Invoke).
+
+Must apply DesktopScreen.jpg.
+
+7.2 Logon Wallpaper
+Applied via registry/policy.
+
+Must apply LogonScreen.jpg.
+
+BackgroundNoBlurReg ensures crisp rendering.
+
+Open Question: Should lock screen image path be enforced via policy or user-level registry?
+
+8. Scheduled Task Configuration
+8.1 BootIdentity Task
+Name: BackgroundModifier-BootIdentity
+
+Trigger: At system startup
+
+User: SYSTEM
+
+Action: Run BootIdentity.ps1 via symlink
+
+8.2 Autorun Task
+Name: BackgroundModifier-Autorun
+
+Trigger: At user logon
+
+User: Interactive user
+
+Action: Run BackgroundSetterStart.ps1 via symlink
+
+9. Symlink Creation Rules
+9.1 Required Symlinks
+C:\BackgroundMotives\SolutionCode\ must contain:
+
+BootIdentity.ps1
+
+BackgroundRenderer.ps1
+
+BackgroundSetter.ps1
+
+BackgroundSetterStart.ps1
+
+BackgroundInstallationVerifier.ps1
+
+9.2 Rules
+No real code may exist in SolutionCode.
+
+Symlinks must be absolute and validated.
+
+Installer must recreate missing symlinks.
+
+10. Error Handling and Recovery
+All errors must be logged.
+
+Fatal errors must stop execution.
+
+Non‑fatal errors must warn and continue where safe.
+
+BootIdentity must never crash the system startup task.
+
+Autorun must abort if State.json is missing or invalid.
+
+Open Question: Should Autorun retry State.json load if file is locked?
+
+11. Implementation Notes
+All modules must be stateless.
+
+All scripts must be idempotent where possible.
+
+All timestamps must use UTC unless otherwise required.
+
+Open Question: Should Renderer support high‑DPI scaling?
+
+12. Function Reference Coverage (Docs ↔ Code)
+The following function inventory is documented to establish explicit reference coverage between implementation modules and documentation.
+
+- BootIdentity.ps1: `Invoke-Diskpart`
+- BackgroundNoBlurReg.psm1: `Set-NoBlur`, `Remove-NoBlur`
+- BackgroundStateMgr.psm1: `Get-BackgroundState`, `Update-BackgroundState`, `Clear-BackgroundState`
+- CleanupTools.psm1: `Remove-OldLogs`, `Clear-RenderFolder`
+- ConfigTools.psm1: `Load-Config`, `Save-Config`
+- ErrorTools.psm1: `Throw-ToolError`, `Write-ToolError`
+- ImageTools.psm1: `Test-Image`, `Get-ImageSize`
+- InstallerTools.psm1: `Test-Admin`, `Require-Admin`, `Copy-Safe`
+- Logging.psm1: `Write-LogInfo`, `Write-LogWarn`, `Write-LogError`
+- LoggingTools.psm1: `Write-Log`, `Write-LogDebug`, `Write-LogTrace`
+- ModeTools.psm1: `Show-DebugState`, `Show-TraceState`
+- PathTools.psm1: `Ensure-Path`, `Join-Safe`
+- ProfileTools.psm1: `Load-Profile`, `Save-Profile`, `Test-ProfileValid`
+- RenderTools.psm1: `Merge-Image`
+- SchedulerTools.psm1: `Register-BackgroundTask`, `Unregister-BackgroundTask`, `Test-BackgroundTask`
+- SetFlagsTool.psm1: `Set-Flags`
+- SummaryTools.psm1: `Show-Summary`
+- SystemTools.psm1: `Get-OSInfo`, `Test-IsWindows`, `Get-UserName`, `Get-ComputerName`
+- TaskTools.psm1: `Invoke-TaskStep`
+- TimeTools.psm1: `Get-RunTimestamp`, `Get-ShortDate`, `Get-RunId`, `Measure-Block`
+- TranscriptTools.psm1: `Get-TranscriptPath`, `Start-ToolTranscript`, `Stop-ToolTranscript`
+- Validation.psm1: `Test-FileExists`, `Test-FolderExists`, `Require-File`, `Require-Folder`
+- ValidationTools.psm1: `Test-PathRequired`, `Test-StringRequired`, `Test-NumberRange`
+- WallpaperTools.psm1: `Set-Wallpaper`
+
+13. Versioning Policy
+- Baseline release is `5.000`.
+- Minor, non-breaking changes increment by `.001` (for example: `5.001`, `5.002`).
+- Redesign-level changes increment by `.100` (for example: `5.100`, `5.200`).
+- Module headers and documentation versions should be kept aligned with the active repository version.

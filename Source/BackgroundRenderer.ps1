@@ -1,16 +1,16 @@
-<#
-    Script: BackgroundRenderer.ps1
-    Version: 1.000
-    Author: Rolf Bercht
-    Purpose: Deterministic rendering of logon and desktop background images.
-#>
+# =================================================================================================
+#  Module:      BackgroundRenderer.ps1
+#  Path:        .\Source
+#  Author:      Rolf Bercht
+#  Version:     5.000
+#  Changelog:
+#      5.000  –  Initial module creation for Consolidated Architecture (background rendering)
+# =================================================================================================
 
 param(
-    [switch]$DebugMode,
-    [switch]$TraceMode
+    [switch]$t,
+    [switch]$d
 )
-
-$LogRoot = "C:\BackgroundMotives\logs"
 
 $ModuleRoot = Join-Path $PSScriptRoot "Modules"
 $prev = $WarningPreference
@@ -24,8 +24,17 @@ Import-Module (Join-Path $ModuleRoot "ErrorTools.psm1") -Force
 Import-Module (Join-Path $ModuleRoot "Validation.psm1") -Force
 Import-Module (Join-Path $ModuleRoot "ModeTools.psm1") -Force
 Import-Module (Join-Path $ModuleRoot "SummaryTools.psm1") -Force
+Import-Module (Join-Path $ModuleRoot "SetFlagsTool.psm1") -Force
 
 $WarningPreference = $prev
+
+$flags = Set-Flags -T:$t -D:$d
+$TraceMode = $flags.TraceMode
+$DebugMode = $flags.DebugMode
+
+$LogRoot     = $Global:LogRoot
+$AssetsRoot  = $Global:AssetsRoot
+$RenderRoot  = $Global:RenderRoot
 
 if ($TraceMode) {
     $timestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss")
@@ -33,17 +42,16 @@ if ($TraceMode) {
     Start-Transcript -Path $TranscriptPath -Force | Out-Null
 }
 
-Write-Host "=== BackgroundModifier Renderer (v1.000) ==="
+Write-Host "=== BackgroundModifier Renderer (v1.001) ==="
 
 if ($DebugMode) { Write-Host "Debug mode enabled" }
 if ($TraceMode) { Write-Host "Trace mode enabled - transcript recording started" }
 
-# --- Correct asset names (JPG) ---
-$DesktopBase = "C:\BackgroundMotives\assets\DesktopBase.jpg"
-$LogonBase   = "C:\BackgroundMotives\assets\LogonBase.jpg"
+$DesktopBase = Join-Path $AssetsRoot "DesktopBase.jpg"
+$LogonBase   = Join-Path $AssetsRoot "LogonBase.jpg"
 
-$OutputLogon   = "C:\BackgroundMotives\rendered\Logon.jpg"
-$OutputDesktop = "C:\BackgroundMotives\rendered\Desktop.jpg"
+$OutputLogon   = Join-Path $RenderRoot "Logon.jpg"
+$OutputDesktop = Join-Path $RenderRoot "Desktop.jpg"
 
 Write-Host "--- Asset check ---"
 
@@ -64,7 +72,7 @@ Write-Host "[OK] Base assets present"
 Write-Host "--- Rendering images ---"
 
 try {
-    Copy-Item -Path $LogonBase   -Destination $OutputLogon   -Force
+    Copy-Item -Path $LogonBase -Destination $OutputLogon -Force
     Write-Host "[OK] Rendered logon image -> $OutputLogon"
 
     Copy-Item -Path $DesktopBase -Destination $OutputDesktop -Force

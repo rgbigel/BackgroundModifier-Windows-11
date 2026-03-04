@@ -1,19 +1,26 @@
-<# ============================================================================================
-  Path:       D:\OneDrive\Git_Repositories\PS\BackgroundModifier\Source\Modules
-  Module:     PathTools.psm1
-  Version:    1.000
-  Author:     Rolf Bercht
+# =================================================================================================
+#  Module:      PathTools.psm1
+#  Path:        .\Source\Modules
+#  Author:      Rolf Bercht
+#  Version:     5.000
+#  Purpose:     Small helpers for safe path creation and validation.
+#  Changelog:
+#      5.000  –  Initial module creation for Consolidated Architecture (path utilities)
+# =================================================================================================
 
-  Purpose:
-      Provides helper functions for working with paths and directories.
-============================================================================================ #>
-
-function Ensure-Directory {
-    param(
-        [string]$Path
-    )
-
+function Ensure-Path {
+    param([string]$Path)
     if (-not (Test-Path $Path)) {
-        New-Item -ItemType Directory -Path $Path | Out-Null
+        New-Item -ItemType Directory -Path $Path -Force | Out-Null
     }
+    return $Path
 }
+
+function Join-Safe {
+    param(
+        [string]$Base,
+        [string]$Child
+    )
+    return (Join-Path $Base $Child)
+}
+    Export-ModuleMember -Function *

@@ -1,21 +1,60 @@
-<# ============================================================================================
-  Path:       D:\OneDrive\Git_Repositories\PS\BackgroundModifier\Source\Modules
-  Module:     TranscriptTools.psm1
-  Version:    1.000
-  Author:     Rolf Bercht
+# =================================================================================================
+#  Module:      TranscriptTools.psm1
+#  Path:        .\Source\Modules
+#  Author:      Rolf Bercht
+#  Version:     5.000
+#  Changelog:
+#      5.000  –  Reconciled module purpose; added transcript path/start/stop helpers
+# =================================================================================================
 
-  Purpose:
-      Provides helper functions for starting and stopping transcripts.
-============================================================================================ #>
-
-function Start-TraceTranscript {
+function Get-TranscriptPath {
+    [CmdletBinding()]
     param(
-        [string]$Path
+        [string]$LogRoot = $Global:LogRoot,
+        [string]$Prefix = 'Session'
     )
 
-    Start-Transcript -Path $Path -Append | Out-Null
+    if ([string]::IsNullOrWhiteSpace($LogRoot)) {
+        $LogRoot = 'C:\BackgroundMotives\logs'
+    }
+
+    $transcriptRoot = Join-Path $LogRoot 'transcripts'
+    if (-not (Test-Path -LiteralPath $transcriptRoot)) {
+        New-Item -Path $transcriptRoot -ItemType Directory -Force | Out-Null
+    }
+
+    $stamp = (Get-Date).ToString('yyyy-MM-dd_HH-mm-ss')
+    return (Join-Path $transcriptRoot ("{0}_{1}.log" -f $Prefix, $stamp))
 }
 
-function Stop-TraceTranscript {
-    Stop-Transcript | Out-Null
+function Start-ToolTranscript {
+    [CmdletBinding()]
+    param(
+        [string]$Path,
+        [string]$LogRoot = $Global:LogRoot,
+        [string]$Prefix = 'Session',
+        [switch]$PassThru
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        $Path = Get-TranscriptPath -LogRoot $LogRoot -Prefix $Prefix
+    }
+
+    Start-Transcript -Path $Path -Force | Out-Null
+    if ($PassThru) {
+        return $Path
+    }
 }
+
+function Stop-ToolTranscript {
+    [CmdletBinding()]
+    param()
+
+    try {
+        Stop-Transcript | Out-Null
+    }
+    catch {
+    }
+}
+
+Export-ModuleMember -Function Get-TranscriptPath, Start-ToolTranscript, Stop-ToolTranscript

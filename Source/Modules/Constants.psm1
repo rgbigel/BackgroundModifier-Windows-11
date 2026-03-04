@@ -1,14 +1,16 @@
-<# ============================================================================================
-  Path:       D:\OneDrive\Git_Repositories\PS\BackgroundModifier\Source\Modules
-  Module:     Constants.psm1
-  Version:    1.000
-  Author:     Rolf Bercht
+# =================================================================================================
+#  Module:      Constants.psm1
+#  Path:        .\Source\Modules
+#  Author:      Rolf Bercht
+#  Version:     5.000
+#  Purpose:     Centralized constant paths and directory definitions for all components.
+#  Changelog:
+#      5.000  –  Initial module creation for Consolidated Architecture (path constants)
+# =================================================================================================
 
-  Purpose:
-      Provides shared constants for scripts and modules.
-============================================================================================ #>
-
-$Global:RuntimeRoot = "C:\BackgroundMotives"
-$Global:AssetsRoot  = "C:\BackgroundMotives\assets"
-$Global:RenderRoot  = "C:\BackgroundMotives\rendered"
-$Global:LogRoot     = "C:\BackgroundMotives\logs"
+$Global:RootPath    = Split-Path (Split-Path $PSScriptRoot)
+$Global:LogRoot     = Join-Path $Global:RootPath "Logs"
+$Global:AssetsRoot  = Join-Path $Global:RootPath "Assets"
+$Global:RenderRoot  = Join-Path $Global:RootPath "Render"
+$Global:SystemRoot  = Join-Path $Global:RootPath "System"
+Export-ModuleMember -Function *

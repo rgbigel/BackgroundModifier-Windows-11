@@ -1,29 +1,40 @@
-<#
-    Module: SetFlagsTool.psm1
-    Version: 1.000
-    Author: Rolf Bercht
-    Purpose: Provide invariant -t / -d flag handling for all operator-facing scripts and flag-aware modules.
-#>
+# =================================================================================================
+#  Module:      SetFlagsTool.psm1
+#  Path:        .\Source\Modules
+#  Author:      Rolf Bercht
+#  Version:     5.000
+#  Changelog:
+#      5.000  –  Reconciled module purpose; added command-line flag parsing via Set-Flags
+# =================================================================================================
 
 function Set-Flags {
+    [CmdletBinding()]
     param(
         [switch]$T,
-        [switch]$D
+
+        [switch]$D,
+
+        [switch]$V
     )
 
-    $result = [ordered]@{
-        TraceMode = $false
-        DebugMode = $false
+    $traceMode = [bool]$T
+    $debugMode = [bool]$D -or $traceMode
+    $verboseMode = [bool]$V
+
+    $mode = 'normal'
+    if ($traceMode) {
+        $mode = 'trace'
+    }
+    elseif ($debugMode) {
+        $mode = 'debug'
     }
 
-    if ($T) {
-        $result.TraceMode = $true
-        $result.DebugMode = $true
+    return [PSCustomObject]@{
+        TraceMode   = $traceMode
+        DebugMode   = $debugMode
+        VerboseMode = $verboseMode
+        Mode        = $mode
     }
-
-    if ($D) {
-        $result.DebugMode = $true
-    }
-
-    return $result
 }
+
+Export-ModuleMember -Function Set-Flags

@@ -1,23 +1,26 @@
+# =================================================================================================
+#  Module:      SummaryTools.psm1
+#  Path:        .\Source\Modules
+#  Author:      Rolf Bercht
+#  Version:     5.000
+# =================================================================================================
+
 <# ============================================================================================
-  Path:       D:\OneDrive\Git_Repositories\PS\BackgroundModifier\Source\Modules
+  Path:       D:\OneDrive\Git_Repositories\PS\BackgroundModifier\Source\Modules\SummaryTools.psm1
   Module:     SummaryTools.psm1
-  Version:    1.000
+  Version:    5.000
   Author:     Rolf Bercht
 
   Purpose:
-      Provides helper functions for printing summary sections in scripts.
+      Small helpers for consistent end‑of‑run summaries.
+
+   Change Log:
+       Version 1.001 27.02.26 15:54
+          Header updated, version incremented, aligned to new VSCode structure.
 ============================================================================================ #>
 
-function Write-SummaryHeader {
-    param([string]$Title)
-
-    Write-Host "=== $Title ==="
-}
-
-function Write-SummaryItem {
+function Show-Summary {
     param([string]$Message)
-
-    Write-Host " - $Message"
+    Write-Host "[SUMMARY] $Message"
 }
-
-Export-ModuleMember -Function Write-SummaryHeader, Write-SummaryItem
+Export-ModuleMember -Function *

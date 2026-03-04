@@ -1,22 +1,25 @@
-<# ============================================================================================
-  Path:       D:\OneDrive\Git_Repositories\PS\BackgroundModifier\Source\Modules
-  Module:     Logging.psm1
-  Version:    1.000
-  Author:     Rolf Bercht
+# =================================================================================================
+#  Module:      Logging.psm1
+#  Path:        .\Source\Modules
+#  Author:      Rolf Bercht
+#  Version:     5.000
+#  Purpose:     Minimal logging helpers for consistent, deterministic output.
+#  Changelog:
+#      5.000  –  Initial module creation for Consolidated Architecture (logging utilities)
+# =================================================================================================
 
-  Purpose:
-      Provides simple, reusable logging utilities for scripts and modules.
-============================================================================================ #>
-
-function Write-Log {
-    param(
-        [string]$Message,
-        [string]$LogFile
-    )
-
-    if (-not $LogFile) {
-        return
-    }
-
-    $Message | Out-File -FilePath $LogFile -Append -Encoding UTF8
+function Write-LogInfo {
+    param([string]$Message)
+    Write-Host "[INFO] $Message"
 }
+
+function Write-LogWarn {
+    param([string]$Message)
+    Write-Host "[WARN] $Message"
+}
+
+function Write-LogError {
+    param([string]$Message)
+    Write-Host "[ERROR] $Message"
+}
+Export-ModuleMember -Function *

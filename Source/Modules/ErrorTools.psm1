@@ -1,23 +1,20 @@
-<# ============================================================================================
-  Path:       D:\OneDrive\Git_Repositories\PS\BackgroundModifier\Source\Modules
-  Module:     ErrorTools.psm1
-  Version:    1.000
-  Author:     Rolf Bercht
+# =================================================================================================
+#  Module:      ErrorTools.psm1
+#  Path:        .\Source\Modules
+#  Author:      Rolf Bercht
+#  Version:     5.000
+#  Purpose:     Simple, deterministic error helpers without side effects.
+#  Changelog:
+#      5.000  –  Initial module creation for Consolidated Architecture (error handling)
+# =================================================================================================
 
-  Purpose:
-      Provides simple error collection and reporting utilities.
-============================================================================================ #>
-
-$script:Errors = @()
-
-function Add-ErrorMessage {
-    param(
-        [string]$Message
-    )
-
-    $script:Errors += $Message
+function Throw-ToolError {
+    param([string]$Message)
+    throw $Message
 }
 
-function Get-Errors {
-    return $script:Errors
+function Write-ToolError {
+    param([string]$Message)
+    Write-Host "[ERROR] $Message"
 }
+Export-ModuleMember -Function *

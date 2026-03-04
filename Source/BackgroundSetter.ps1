@@ -1,20 +1,21 @@
-<#
-    Script: BackgroundSetter.ps1
-    Version: 1.000
-    Author: Rolf Bercht
-    Purpose: Deterministic application of rendered background images to logon and desktop.
-#>
+# =================================================================================================
+#  Module:      BackgroundSetter.ps1
+#  Path:        .\Source
+#  Author:      Rolf Bercht
+#  Version:     5.000
+#  Changelog:
+#      5.000  –  Initial module creation for Consolidated Architecture (wallpaper application)
+# =================================================================================================
 
 param(
-    [switch]$DebugMode,
-    [switch]$TraceMode
+    [switch]$t,
+    [switch]$d
 )
 
-# --- Absolute log root ---
-$LogRoot = "C:\BackgroundMotives\logs"
-
-# --- Import modules ---
 $ModuleRoot = Join-Path $PSScriptRoot "Modules"
+$prev = $WarningPreference
+$WarningPreference = "SilentlyContinue"
+
 Import-Module (Join-Path $ModuleRoot "Constants.psm1") -Force
 Import-Module (Join-Path $ModuleRoot "Logging.psm1") -Force
 Import-Module (Join-Path $ModuleRoot "TranscriptTools.psm1") -Force
@@ -23,24 +24,35 @@ Import-Module (Join-Path $ModuleRoot "ErrorTools.psm1") -Force
 Import-Module (Join-Path $ModuleRoot "Validation.psm1") -Force
 Import-Module (Join-Path $ModuleRoot "ModeTools.psm1") -Force
 Import-Module (Join-Path $ModuleRoot "SummaryTools.psm1") -Force
+Import-Module (Join-Path $ModuleRoot "SetFlagsTool.psm1") -Force
 
-# --- Transcript handling ---
+$WarningPreference = $prev
+
+$flags = Set-Flags -T:$t -D:$d
+$TraceMode = $flags.TraceMode
+$DebugMode = $flags.DebugMode
+
+$RenderRoot = $Global:RenderRoot
+$SystemRoot = $Global:SystemRoot
+
 if ($TraceMode) {
     $timestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss")
-    $TranscriptPath = Join-Path $LogRoot "Setter_$timestamp.log"
+    $TranscriptPath = Join-Path $Global:LogRoot "Setter_$timestamp.log"
     Start-Transcript -Path $TranscriptPath -Force | Out-Null
 }
 
-Write-Host "=== BackgroundModifier Setter (v1.000) ==="
+Write-Host "=== BackgroundModifier Setter (v1.001) ==="
 
 if ($DebugMode) { Write-Host "Debug mode enabled" }
 if ($TraceMode) { Write-Host "Trace mode enabled - transcript recording started" }
 
-# --- Paths ---
-$RenderedLogon = "C:\BackgroundMotives\rendered\Logon.jpg"
-$RenderedDesktop = "C:\BackgroundMotives\rendered\Desktop.jpg"
+$RenderedLogon   = Join-Path $RenderRoot "Logon.jpg"
+$RenderedDesktop = Join-Path $RenderRoot "Desktop.jpg"
 
-Write-Host "--- File check ---"
+$SystemLogon   = Join-Path $SystemRoot "Logon.jpg"
+$SystemDesktop = Join-Path $SystemRoot "Desktop.jpg"
+
+Write-Host "--- Checking rendered images ---"
 
 if (-not (Test-Path $RenderedLogon)) {
     Write-Host "[X] Missing rendered logon image -> $RenderedLogon"
@@ -54,35 +66,23 @@ if (-not (Test-Path $RenderedDesktop)) {
     exit 1
 }
 
-Write-Host "[OK] Rendered images present"
+Write-Host "[OK] Rendered images found"
 
-# --- Apply logon background ---
-Write-Host "--- Applying logon background ---"
+Write-Host "--- Applying backgrounds ---"
 
 try {
-    Copy-Item -Path $RenderedLogon -Destination "C:\Windows\System32\oobe\info\backgrounds\backgroundDefault.jpg" -Force
-    Write-Host "[OK] Logon background applied -> backgroundDefault.jpg"
+    Copy-Item -Path $RenderedLogon -Destination $SystemLogon -Force
+    Write-Host "[OK] Applied logon background -> $SystemLogon"
+
+    Copy-Item -Path $RenderedDesktop -Destination $SystemDesktop -Force
+    Write-Host "[OK] Applied desktop background -> $SystemDesktop"
 }
 catch {
-    Write-Host "[X] Failed to apply logon background: $($_.Exception.Message)"
+    Write-Host "[X] Failed to apply backgrounds: $($_.Exception.Message)"
     if ($TraceMode) { Stop-Transcript | Out-Null }
     exit 1
 }
 
-# --- Apply desktop background ---
-Write-Host "--- Applying desktop background ---"
-
-try {
-    Copy-Item -Path $RenderedDesktop -Destination "$env:USERPROFILE\Pictures\Background.jpg" -Force
-    Write-Host "[OK] Desktop background applied -> $env:USERPROFILE\Pictures\Background.jpg"
-}
-catch {
-    Write-Host "[X] Failed to apply desktop background: $($_.Exception.Message)"
-    if ($TraceMode) { Stop-Transcript | Out-Null }
-    exit 1
-}
-
-# --- Summary ---
 Write-Host "--- Summary ---"
 Write-Host "[OK] Backgrounds applied successfully."
 

@@ -1,20 +1,20 @@
-<# ============================================================================================
-  Path:       D:\OneDrive\Git_Repositories\PS\BackgroundModifier\Source\Modules
-  Module:     ModeTools.psm1
-  Version:    1.000
-  Author:     Rolf Bercht
+# =================================================================================================
+#  Module:      ModeTools.psm1
+#  Path:        .\Source\Modules
+#  Author:      Rolf Bercht
+#  Version:     5.000
+#  Purpose:     Helpers for interpreting and exposing debug and trace mode states.
+#  Changelog:
+#      5.000  –  Initial module creation for Consolidated Architecture (debug/trace modes)
+# =================================================================================================
 
-  Purpose:
-      Provides helpers for handling Debug and Trace modes.
-============================================================================================ #>
-
-function Apply-DebugMode {
-    param(
-        [switch]$DebugMode
-    )
-
-    if ($DebugMode) {
-        $DebugPreference   = "Continue"
-        $VerbosePreference = "Continue"
-    }
+function Show-DebugState {
+    param([bool]$Enabled)
+    if ($Enabled) { Write-Host "[DEBUG] Debug mode active" }
 }
+
+function Show-TraceState {
+    param([bool]$Enabled)
+    if ($Enabled) { Write-Host "[TRACE] Trace mode active" }
+}
+Export-ModuleMember -Function *
